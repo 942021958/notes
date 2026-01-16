@@ -2073,7 +2073,7 @@ jQuery(async () => {
         returns: 'the query messages value',
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({
-                description: 'Query messages (number >= 0).',
+                description: 'Query messages (number > 0).',
                 typeList: [ARGUMENT_TYPE.NUMBER],
             }),
         ],
@@ -2084,8 +2084,8 @@ jQuery(async () => {
             }
 
             const parsed = Number(raw);
-            if (!Number.isFinite(parsed) || parsed < 0) {
-                toastr.warning('Query messages must be a number greater than or equal to 0.');
+            if (!Number.isFinite(parsed) || parsed <= 0) {
+                toastr.warning('Query messages must be a number greater than 0.');
                 return '';
             }
 
@@ -2103,7 +2103,7 @@ jQuery(async () => {
         returns: 'world info max entries',
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({
-                description: 'Max entries (number >= 0).',
+                description: 'Max entries (number > 0).',
                 typeList: [ARGUMENT_TYPE.NUMBER],
             }),
         ],
