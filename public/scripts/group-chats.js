@@ -2039,11 +2039,12 @@ export async function openGroupById(groupId) {
 
         if (selected_group !== groupId) {
             groupChatQueueOrder = new Map();
+            setCharacterId(undefined);
+            setCharacterName('');
+            resetSelectedGroup();
             await clearChat({ clearData: true });
             cancelTtsPlay();
             selected_group = groupId;
-            setCharacterId(undefined);
-            setCharacterName('');
             setEditedMessageId(undefined);
             updateChatMetadata({}, true);
             await getGroupChat(groupId);

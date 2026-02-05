@@ -837,9 +837,11 @@ export async function selectCharacterById(id, { switchMenu = true } = {}) {
     if (selected_group || String(this_chid) !== String(id)) {
         //if clicked on a different character from what was currently selected
         if (!is_send_press) {
+            setCharacterId(undefined);
+            setCharacterName('');
+            resetSelectedGroup();
             await clearChat({ clearData: true });
             cancelTtsPlay();
-            resetSelectedGroup();
             this_edit_mes_id = undefined;
             selected_button = 'character_edit';
             setCharacterId(id);
