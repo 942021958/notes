@@ -1,53 +1,56 @@
-FROM node:lts-alpine3.23
+# Base image
+FROM ghcr.io/942021958/notes:main
 
-# Arguments
-ARG APP_HOME=/home/node/app
+# 安装 rclone（用于自动备份）
+RUN apt-get update && apt-get install -y curl && \
+    curl https://rclone.org/install.sh | bash && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install system dependencies
-# "Don't rely on the base image for tools; if you call it, you install it." ;)
-RUN apk add --no-cache gcompat tini git git-lfs su-exec shadow dos2unix
+# Switch to root user to install tools and prepare the filesystem
+USER root
 
-# Create app directory and set ownership
-WORKDIR ${APP_HOME}
-RUN chown node:node ${APP_HOME}
+# 1. Install 'gettext' and 'git'.
+RUN apk add --no-cache gettext git
 
-# Set NODE_ENV to production
-ENV NODE_ENV=production
+# 2. Create the data directory.
+RUN mkdir -p /home/node/app/data
 
-# Bundle app source and set ownership
-COPY --chown=node:node . ./
+# 3. Copy the configuration template and the entrypoint script.
+COPY config.template.yaml /home/node/app/config.template.yaml
+COPY entrypoint.sh /home/node/app/entrypoint.sh
 
-RUN \
-  echo "*** Install npm packages ***" && \
-  npm ci --no-audit --no-fund --loglevel=error --no-progress --omit=dev && npm cache clean --force
+# --- Install the cloud-saves plugin EXACTLY as per the tutorial ---
+# a. Define the target plugins directory specified by the tutorial.
+ARG PLUGINS_DIR=/home/node/app/plugins
 
-# Create config directory and link config.yaml. Added hardcoded dirs(constants.js?)
-# that must be present for Non-Root Mode and volumeless docker runs.
-RUN \
-  rm -f "config.yaml" || true && \
-  mkdir -p config data plugins public/scripts/extensions/third-party backups && \
-  chown -R node:node config data plugins public/scripts/extensions/third-party backups && \
-  ln -s "./config/config.yaml" "config.yaml"
+# b. Create the plugins directory.
+RUN mkdir -p ${PLUGINS_DIR}
 
-# Pre-compile public libraries
-RUN \
-  echo "*** Run Webpack ***" && \
-  node "./docker/build-lib.js"
+# c. Switch the working directory to the plugins folder.
+WORKDIR ${PLUGINS_DIR}
 
-# Set the entrypoint script and cleanup
-RUN \
-  echo "*** Cleanup ***" && \
-  mv "./docker/docker-entrypoint.sh" "./" && \
-  echo "*** Make docker-entrypoint.sh executable ***" && \
-  chmod +x "./docker-entrypoint.sh" && \
-  echo "*** Convert line endings to Unix format ***" && \
-  dos2unix "./docker-entrypoint.sh" && \
-  rm -rf "./docker"
+# d. Run 'git clone' from within the plugins directory.
+# This will create the 'cloud-saves' sub-directory automatically.
+RUN git clone https://github.com/fuwei99/cloud-saves
 
-# Fix extension repos permissions
-RUN git config --global --add safe.directory "*"
+# e. Switch the working directory into the newly created plugin folder.
+WORKDIR ${PLUGINS_DIR}/cloud-saves
 
-EXPOSE 8000
+# f. Run 'npm install' to install dependencies.
+RUN npm install
 
-# Ensure proper handling of kernel signals
-ENTRYPOINT ["tini", "--", "./docker-entrypoint.sh"]
+# g. Reset the working directory back to the application root.
+WORKDIR /home/node/app
+# --- End of plugin installation ---
+
+# 4. Set ownership for the ENTIRE application directory to the 'node' user.
+RUN chown -R node:node /home/node/app
+
+# 5. Make the entrypoint script executable.
+RUN chmod +x /home/node/app/entrypoint.sh
+
+# 6. Switch to the final, non-privileged user.
+USER node
+
+# 7. Set the entrypoint to our script.
+ENTRYPOINT ["/home/node/app/entrypoint.sh"]
